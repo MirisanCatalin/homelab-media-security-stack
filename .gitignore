@@ -1,0 +1,28 @@
+# Secrets
+*.conf
+*.key
+*.pem
+wg0.conf
+wireguard/
+secrets/
+.env
+.env.*
+
+# Tokens & keys
+*_api_key*
+*_token*
+credentials*
+
+# System
+.DS_Store
+*.log
+*.swp
+*~
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# OS
+Thumbs.db
