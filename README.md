@@ -45,38 +45,35 @@ core security principles in a real, working environment:
 
 ### Network architecture
 
+### System Architecture
+
 ```mermaid
 flowchart TB
-    %% Remote devices
     subgraph Remote["🌍 Remote Access (Zero Trust)"]
         Laptop["💻 Laptop<br/>100.67.149.118"]
         Phone["📱 iPhone<br/>100.117.17.98"]
     end
 
-    %% Tailscale mesh
     Tailscale{{"🔐 Tailscale Mesh<br/>WireGuard-based<br/>No open ports on router"}}
 
-    %% Proxmox host with containers
-    subgraph PVE["🖥️ Proxmox VE Host<br/>Lenovo M720q · 192.168.1.50"]
+    subgraph PVE["🖥️ Proxmox VE Host<br/>Lenovo M720q<br/>LAN: 192.168.1.50 · Tailscale: 100.82.127.40"]
         direction TB
         subgraph Containers["8 Unprivileged LXC Containers"]
             direction LR
-            QBit["qBittorrent<br/>:8090"]
-            Radarr["Radarr<br/>:7878"]
-            Sonarr["Sonarr<br/>:8989"]
-            Seerr["Seerr<br/>:5055"]
-            Jellyfin["Jellyfin<br/>:8096"]
-            Prowlarr["Prowlarr<br/>:9696"]
-            ClamAV["ClamAV<br/>:3310"]
-            Uptime["Uptime Kuma<br/>:3001"]
+            QBit["qBittorrent<br/>.51 :8090"]
+            Radarr["Radarr<br/>.52 :7878"]
+            Sonarr["Sonarr<br/>.53 :8989"]
+            Seerr["Seerr<br/>.54 :5055"]
+            Jellyfin["Jellyfin<br/>.55 :8096"]
+            Prowlarr["Prowlarr<br/>.56 :9696"]
+            ClamAV["ClamAV<br/>.57 :3310"]
+            Uptime["Uptime Kuma<br/>.58 :3001"]
         end
     end
 
-    %% External services
     Mullvad["🔒 Mullvad VPN<br/>Berlin, DE"]
     Media[("📁 /mnt/media<br/>downloads · movies · tv · quarantine")]
 
-    %% Connections
     Laptop --> Tailscale
     Phone --> Tailscale
     Tailscale --> PVE
@@ -87,7 +84,6 @@ flowchart TB
     Sonarr --> Media
     Jellyfin --> Media
 
-    %% Styles
     classDef remote fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#000
     classDef ts fill:#fff3e0,stroke:#f57c00,stroke-width:2px,color:#000
     classDef host fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000
@@ -100,6 +96,47 @@ flowchart TB
     class PVE host
     class QBit,Radarr,Sonarr,Seerr,Jellyfin,Prowlarr,ClamAV,Uptime container
     class Mullvad vpn
+    class Media storage
+```
+
+### Data Flow (Request → Playback)
+
+```mermaid
+flowchart LR
+    User(("👤 User"))
+    
+    Seerr["🎬 Seerr<br/>Request UI"]
+    Radarr["🎥 Radarr<br/>Movies"]
+    Sonarr["📺 Sonarr<br/>TV Shows"]
+    Prowlarr["🔍 Prowlarr<br/>Indexers"]
+    QBit["⬇️ qBittorrent<br/>+ VPN"]
+    ClamAV["🛡️ ClamAV<br/>Antivirus"]
+    Media[("📁 /mnt/media")]
+    Jellyfin["🍿 Jellyfin<br/>Media Server"]
+
+    User -->|"1. Request movie/show"| Seerr
+    Seerr -->|"2. Forward request"| Radarr
+    Seerr -->|"2. Forward request"| Sonarr
+    Radarr -->|"3. Search via"| Prowlarr
+    Sonarr -->|"3. Search via"| Prowlarr
+    Radarr -->|"4. Send torrent"| QBit
+    Sonarr -->|"4. Send torrent"| QBit
+    QBit -->|"5. Download via VPN"| Media
+    ClamAV -.->|"6. Scan on completion"| Media
+    Media -->|"7. Import clean files"| Radarr
+    Media -->|"7. Import clean files"| Sonarr
+    Radarr -->|"8. Move to movies/"| Media
+    Sonarr -->|"8. Move to tv/"| Media
+    Media -->|"9. Stream"| Jellyfin
+    Jellyfin -->|"10. Play"| User
+
+    classDef user fill:#e1f5fe,stroke:#0277bd,stroke-width:2px,color:#000
+    classDef app fill:#e8f5e9,stroke:#388e3c,stroke-width:2px,color:#000
+    classDef vpn fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#000
+    classDef storage fill:#fce4ec,stroke:#ad1457,stroke-width:2px,color:#000
+
+    class User user
+    class Seerr,Radarr,Sonarr,Prowlarr,QBit,ClamAV,Jellyfin app
     class Media storage
 ```
 
