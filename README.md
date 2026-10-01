@@ -45,35 +45,63 @@ core security principles in a real, working environment:
 
 ### Network architecture
 
-\`\`\`
-                      Internet (Tailscale mesh, WireGuard-based)
-                              │
-                              ├── Laptop (100.67.149.118)
-                              └── iPhone (100.117.17.98)
-                              │
-                      ┌───────┴────────┐
-                      │  Zero Trust    │
-                      │  (no open      │
-                      │   ports on     │
-                      │   router)      │
-                      └───────┬────────┘
-                              │
-                    Tailscale (100.64.0.0/10)
-                              │
-        ┌─────────────────────┼─────────────────────┐
-        │                     │                     │
-   ┌────▼────┐          ┌────▼────┐          ┌────▼────┐
-   │  100    │          │  101    │          │  ...107 │
-   │qBittorr │          │ Radarr  │          │  etc.   │
-   └────┬────┘          └─────────┘          └─────────┘
-        │
-        │ WireGuard (kill switch)
-        ▼
-   ┌─────────┐
-   │ Mullvad │ ← Torrent traffic only
-   │  VPN    │   (Berlin, DE)
-   └─────────┘
-\`\`\`
+```mermaid
+flowchart TB
+    %% Remote devices
+    subgraph Remote["🌍 Remote Access (Zero Trust)"]
+        Laptop["💻 Laptop<br/>100.67.149.118"]
+        Phone["📱 iPhone<br/>100.117.17.98"]
+    end
+
+    %% Tailscale mesh
+    Tailscale{{"🔐 Tailscale Mesh<br/>WireGuard-based<br/>No open ports on router"}}
+
+    %% Proxmox host with containers
+    subgraph PVE["🖥️ Proxmox VE Host<br/>Lenovo M720q · 192.168.1.50"]
+        direction TB
+        subgraph Containers["8 Unprivileged LXC Containers"]
+            direction LR
+            QBit["qBittorrent<br/>:8090"]
+            Radarr["Radarr<br/>:7878"]
+            Sonarr["Sonarr<br/>:8989"]
+            Seerr["Seerr<br/>:5055"]
+            Jellyfin["Jellyfin<br/>:8096"]
+            Prowlarr["Prowlarr<br/>:9696"]
+            ClamAV["ClamAV<br/>:3310"]
+            Uptime["Uptime Kuma<br/>:3001"]
+        end
+    end
+
+    %% External services
+    Mullvad["🔒 Mullvad VPN<br/>Berlin, DE"]
+    Media[("📁 /mnt/media<br/>downloads · movies · tv · quarantine")]
+
+    %% Connections
+    Laptop --> Tailscale
+    Phone --> Tailscale
+    Tailscale --> PVE
+    QBit -->|"WireGuard<br/>kill switch"| Mullvad
+    ClamAV -.->|"scan on completion"| QBit
+    QBit --> Media
+    Radarr --> Media
+    Sonarr --> Media
+    Jellyfin --> Media
+
+    %% Styles
+    classDef remote fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#000
+    classDef ts fill:#fff3e0,stroke:#f57c00,stroke-width:2px,color:#000
+    classDef host fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000
+    classDef container fill:#e8f5e9,stroke:#388e3c,stroke-width:2px,color:#000
+    classDef vpn fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#000
+    classDef storage fill:#fce4ec,stroke:#ad1457,stroke-width:2px,color:#000
+
+    class Laptop,Phone remote
+    class Tailscale ts
+    class PVE host
+    class QBit,Radarr,Sonarr,Seerr,Jellyfin,Prowlarr,ClamAV,Uptime container
+    class Mullvad vpn
+    class Media storage
+```
 
 ## Security features in detail
 
